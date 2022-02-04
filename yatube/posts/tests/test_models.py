@@ -20,17 +20,11 @@ class PostModelTest(TestCase):
             pub_date='22.02.2022',
         )
 
-    def test_post_model_have_correct_object_names(self):
+    def test_post_and_group_model_have_correct_object_names(self):
         """Проверяем, что у модели Post
         and Group корректно работает __str__."""
         self.assertEqual(str(self.post), self.post.text[:15])
         self.assertEqual(str(self.group), self.group.title)
-
-    def test_group_model_have_correct_object_names(self):
-        """Проверяем, что у модели Grouup корректно работает __str__."""
-        group_title = PostModelTest.group
-        title = group_title.title
-        self.assertEqual(title, self.group.title)
 
     def test_verbose_name_post_model(self):
         """verbose_name в полях совпадает с ожидаемым."""

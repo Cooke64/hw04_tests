@@ -95,6 +95,7 @@ def post_edit(request, post_id):
     is_edit = True
     context = {'form': form, 'is_edit': is_edit}
     return render(request, 'posts/create_post.html', context)
+
 # Второй вариант реализации подробнее и мне понятнее,чем первый.
 # @login_required
 # def post_edit(request, post_id):

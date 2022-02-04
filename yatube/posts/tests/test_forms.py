@@ -1,14 +1,13 @@
 import shutil
 import tempfile
 
-from django.contrib.auth import get_user_model
-from posts.forms import PostForm
-from posts.models import Post, Group
 from django.conf import settings
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-User = get_user_model()
+from posts.forms import PostForm
+from posts.models import Post, Group, User
+
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 
@@ -39,19 +38,29 @@ class PostFormTest(TestCase):
         super().tearDownClass()
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
-    def test_create_task(self):
-        tasks_count = Post.objects.count()
+    def test_form_create(self):
+        """Валидная форма создает пост."""
+        post_count = Post.objects.count()
         form_data = {
             'text': PostFormTest.post.text,
             'group': PostFormTest.group.id,
             'id': PostFormTest.post.id,
         }
-        self.authorized_client.post(
-            reverse('post:post_detail', kwargs={'post_id': '1'}),
+        response_1 = self.guest_client.post(
+            reverse('post:create'),
             data=form_data,
+            follow=True
         )
+        self.assertRedirects(response_1, ('/auth/login/?next=/create/'))
+        response = self.authorized_client.post(
+            reverse('post:create'),
+            data=form_data,
+            follow=True
+        )
+        self.assertRedirects(response, reverse(
+            'post:profile', kwargs={'username': self.author.username}))
 
-        self.assertEqual(Post.objects.count(), tasks_count)
+        self.assertEqual(Post.objects.count(), post_count + 1)
         self.assertTrue(
             Post.objects.filter(
                 id=PostFormTest.post.id,
@@ -61,18 +70,32 @@ class PostFormTest(TestCase):
         )
 
     def test_post_edit(self):
+        """При отправке валидной формы пост редактируется."""
+        text_edit = 'Отредактированный текст'
         posts_count = Post.objects.count()
         form_data = {
-            'text': 'а',
+            'text': text_edit,
             'group': PostFormTest.group.id
         }
-        self.authorized_client.post(
-            reverse('post:post_detail', kwargs={'post_id': '1'}),
+        response = self.guest_client.post(
+            reverse('post:post_edit', kwargs={'post_id': '1'}),
             data=form_data,
+            follow=True
         )
+        self.assertRedirects(response, ('/auth/login/?next=/posts/1/edit/'))
+
+        response_1 = self.authorized_client.post(
+            reverse('post:post_edit',
+                    kwargs={'post_id': PostFormTest.post.id}),
+            data=form_data,
+            follow=True
+        )
+        self.assertRedirects(response_1, reverse(
+            'post:post_detail', kwargs={'post_id': PostFormTest.post.id}), )
+
         self.assertTrue(Post.objects.filter(
             group=PostFormTest.group.id,
             id=PostFormTest.post.id,
-            text=PostFormTest.post.text,
+            text=text_edit,
         ).exists())
         self.assertEqual(Post.objects.count(), posts_count)

@@ -1,9 +1,11 @@
-from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
 from http import HTTPStatus
-from ..models import Group, Post
 
-User = get_user_model()
+from django.test import Client, TestCase
+from django.urls import reverse
+
+from ..models import Group, Post, User
+
+
 STATUS_OK = HTTPStatus.OK
 STATUS_NO = HTTPStatus.NOT_FOUND
 STATUS_FOUND = HTTPStatus.FOUND
@@ -14,6 +16,7 @@ class URLTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.author = User.objects.create_user(username='test_user')
+        cls.no_author = User.objects.create_user(username='no_author')
         cls.group = Group.objects.create(
             title='Тестовый заголовок',
             slug='test-slug',
@@ -28,6 +31,8 @@ class URLTests(TestCase):
         cls.guest_client = Client()
         cls.authorized_client = Client()
         cls.authorized_client.force_login(cls.author)
+        cls.authorized_client_1 = Client()
+        cls.authorized_client_1.force_login(cls.no_author)
 
     def test_pages_exists_at_desired_location(self):
         """Страница доступна любому пользователю"""
@@ -45,9 +50,12 @@ class URLTests(TestCase):
                 response = self.guest_client.get(adress)
                 self.assertEqual(response.status_code, http_status)
 
-    def test_task_list_url_redirect_anonymous(self):
+    def test_post_list_url_redirect_anonymous(self):
         """Страница create/ перенаправляет анонимного пользователя."""
-        response = self.guest_client.get('/auth/password_change/')
+        response = self.guest_client.post(
+            reverse('post:create'),
+        )
+        self.assertRedirects(response, ('/auth/login/?next=/create/'))
         self.assertEqual(response.status_code, STATUS_FOUND)
 
     def test_urls_uses_correct_template(self):
@@ -72,3 +80,9 @@ class URLTests(TestCase):
         """Страница posts/<post_id>/edit/ доступна автору поста."""
         response = self.authorized_client.get('/posts/1/edit/')
         self.assertEqual(response.status_code, STATUS_OK)
+
+    def test_no_author_of_post_cant_edit_post(self):
+        """Страница posts/<post_id>/edit/ не доступна
+         авторизованному пользователю, но не автору поста"""
+        response = self.authorized_client_1.get('/posts/1/edit/')
+        self.assertEqual(response.status_code, STATUS_FOUND)

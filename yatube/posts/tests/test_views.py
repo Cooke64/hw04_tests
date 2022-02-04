@@ -1,12 +1,8 @@
-from django.contrib.auth import get_user_model
+from django import forms
 from django.test import Client, TestCase
 from django.urls import reverse
-from django import forms
 
-from ..models import Group, Post
-
-
-User = get_user_model()
+from ..models import Group, Post, User
 
 
 class ViewsTests(TestCase):
@@ -83,15 +79,31 @@ class ViewsTests(TestCase):
         """Проверяем Context страницы posts_groups"""
         response = self.authorized_client.get(
             reverse('post:group', kwargs={'slug': self.group.slug}))
-        for post in response.context['page_obj']:
-            self.assertEqual(post.group, self.group)
+        first_object = response.context['page_obj'][0]
+        context_objects = {
+            self.author: first_object.author,
+            self.post.text: first_object.text,
+            self.group: first_object.group,
+            self.post.id: first_object.id,
+        }
+        for reverse_name, response_name in context_objects.items():
+            with self.subTest(reverse_name=reverse_name):
+                self.assertEqual(response_name, reverse_name)
 
     def test_post_profile_page_show_correct_context(self):
         """Проверяем Context страницы profile"""
         response = self.authorized_client.get(
             reverse('post:profile', kwargs={'username': self.author.username}))
-        for post in response.context['page_obj']:
-            self.assertEqual(post.author, self.author)
+        first_object = response.context['page_obj'][0]
+        context_objects = {
+            self.author: first_object.author,
+            self.post.text: first_object.text,
+            self.group: first_object.group,
+            self.post.id: first_object.id,
+        }
+        for reverse_name, response_name in context_objects.items():
+            with self.subTest(reverse_name=reverse_name):
+                self.assertEqual(response_name, reverse_name)
 
     def test_create_page_show_correct_context(self):
         """Шаблон post_create сформирован с правильным контекстом."""
@@ -105,13 +117,13 @@ class ViewsTests(TestCase):
                 form_field = response.context.get('form').fields.get(value)
                 self.assertIsInstance(form_field, expected)
 
-        def test_profile_page_list_is_1(self):
-            """В шаблон profile передается верное количество постов"""
-            response = self.authorized_client.get(
-                reverse('post:profile',
-                        kwargs={'username': ViewsTests.post.author}))
-            object_all = response.context['page_obj']
-            self.assertEqual(len(object_all), 1)
+    def test_profile_page_list_is_1(self):
+        """В шаблон profile передается верное количество постов"""
+        response = self.authorized_client.get(
+            reverse('post:profile',
+                    kwargs={'username': ViewsTests.post.author}))
+        object_all = response.context['page_obj']
+        self.assertEqual(len(object_all), 1)
 
     def test_post_new_create(self):
         """При создании поста он должен появиться там,где следует"""
@@ -138,27 +150,39 @@ class PaginatorViewsTest(TestCase):
             slug='test-slug',
             description='Тестовый текст',
         )
-        for cls.post in range(1, 14):
-            cls.post = Post.objects.create(
+        # bulk_create для создания
+        # 13 объектов модели Post
+        objs = [
+            Post(
                 author=cls.author,
                 group=cls.group,
                 text='Тестовый заголовок',
                 pub_date='22.02.2022',
             )
+            for bulk in range(1, 14)
+        ]
+        cls.post = Post.objects.bulk_create(objs)
+        print(len(cls.post))
 
     def test_first_page_contains_ten_records(self):
-        # Проверка: на первой странице должно быть 10 постов.
+        """Проверка: на первой странице должно быть 10 постов."""
         response = self.client.get(reverse('post:main'))
         self.assertEqual(len(response.context['page_obj']), 10)
 
     def test_second_page_contains_three_records(self):
-        # Проверка: на второй странице должно быть три поста.
+        """Проверка: на второй странице должно быть три поста."""
         response = self.client.get(reverse('post:main') + '?page=2')
         self.assertEqual(len(response.context['page_obj']), 3)
 
     def test_group_list_contains_ten_pages(self):
-        # Проверка: на  странице group_list должно быть 10 постов.
+        """Проверка: на  странице group_list должно быть 10 постов."""
         response = self.client.get(
             reverse('post:group', kwargs={'slug': 'test-slug'})
         )
+        self.assertEqual(len(response.context['page_obj']), 10)
+
+    def test_profile_contains_ten_records(self):
+        """Проверка: на  странице рофиля должно быть 10 постов."""
+        response = self.client.get(reverse(
+            'post:profile', kwargs={'username': self.author.username}))
         self.assertEqual(len(response.context['page_obj']), 10)
