@@ -135,7 +135,8 @@ class ViewsTests(TestCase):
         self.assertEqual(len(object_all), 1)
 
     def test_post_new_create_appears_on_correct_pages(self):
-        """При создании поста он должен появиться там,где следует"""
+        """При создании поста он должен появляется на главной странице,
+        на странице выбранной группы и в профиле пользователя"""
         exp_pages = [
             reverse('post:main'),
             reverse(
@@ -150,7 +151,7 @@ class ViewsTests(TestCase):
 
     def test_posts_not_contain_in_wrong_group(self):
         """При создании поста он не появляется в другой группе"""
-        post = Post.objects.first()
+        post = Post.objects.get(pk=1)
         response = self.authorized_client.get(
             reverse('post:group', kwargs={'slug': self.new_group.slug})
         )
