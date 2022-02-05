@@ -46,12 +46,6 @@ class PostFormTest(TestCase):
             'group': PostFormTest.group.id,
             'id': PostFormTest.post.id,
         }
-        response_1 = self.guest_client.post(
-            reverse('post:create'),
-            data=form_data,
-            follow=True
-        )
-        self.assertRedirects(response_1, ('/auth/login/?next=/create/'))
         response = self.authorized_client.post(
             reverse('post:create'),
             data=form_data,
@@ -59,8 +53,31 @@ class PostFormTest(TestCase):
         )
         self.assertRedirects(response, reverse(
             'post:profile', kwargs={'username': self.author.username}))
-
         self.assertEqual(Post.objects.count(), post_count + 1)
+        self.assertTrue(
+            Post.objects.filter(
+                id=PostFormTest.post.id,
+                text=PostFormTest.post.text,
+                group=PostFormTest.group.id,
+            ).exists()
+        )
+
+    def test_no_authorized_person_cant_create_post(self):
+        """Не авторизованный пользователь
+        не может создать пост"""
+        post_count = Post.objects.count()
+        form_data = {
+            'text': PostFormTest.post.text,
+            'group': PostFormTest.group.id,
+            'id': PostFormTest.post.id,
+        }
+        response_1 = self.guest_client.post(
+            reverse('post:create'),
+            data=form_data,
+            follow=True
+        )
+        self.assertRedirects(response_1, ('/auth/login/?next=/create/'))
+        self.assertEqual(Post.objects.count(), post_count)
         self.assertTrue(
             Post.objects.filter(
                 id=PostFormTest.post.id,
@@ -77,13 +94,6 @@ class PostFormTest(TestCase):
             'text': text_edit,
             'group': PostFormTest.group.id
         }
-        response = self.guest_client.post(
-            reverse('post:post_edit', kwargs={'post_id': '1'}),
-            data=form_data,
-            follow=True
-        )
-        self.assertRedirects(response, ('/auth/login/?next=/posts/1/edit/'))
-
         response_1 = self.authorized_client.post(
             reverse('post:post_edit',
                     kwargs={'post_id': PostFormTest.post.id}),
@@ -98,4 +108,20 @@ class PostFormTest(TestCase):
             id=PostFormTest.post.id,
             text=text_edit,
         ).exists())
+        self.assertEqual(Post.objects.count(), posts_count)
+
+    def test_no_authorized_person_cant_edit_post(self):
+        """Не авторизованный пользователь
+        не может редактировать пост"""
+        posts_count = Post.objects.count()
+        form_data = {
+            'text': PostFormTest.post.text,
+            'group': PostFormTest.group.id
+        }
+        response = self.guest_client.post(
+            reverse('post:post_edit', kwargs={'post_id': '1'}),
+            data=form_data,
+            follow=True
+        )
+        self.assertRedirects(response, ('/auth/login/?next=/posts/1/edit/'))
         self.assertEqual(Post.objects.count(), posts_count)

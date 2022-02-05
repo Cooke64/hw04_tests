@@ -50,12 +50,20 @@ class URLTests(TestCase):
                 response = self.guest_client.get(adress)
                 self.assertEqual(response.status_code, http_status)
 
-    def test_post_list_url_redirect_anonymous(self):
+    def test_post_create_url_redirect_anonymous(self):
         """Страница create/ перенаправляет анонимного пользователя."""
         response = self.guest_client.post(
             reverse('post:create'),
         )
         self.assertRedirects(response, ('/auth/login/?next=/create/'))
+        self.assertEqual(response.status_code, STATUS_FOUND)
+
+    def test_post_edit_url_redirect_anonymous(self):
+        """Страница post_edit/ перенаправляет анонимного пользователя."""
+        response = self.guest_client.post(
+            reverse('post:post_edit', kwargs={'post_id': '1'},)
+        )
+        self.assertRedirects(response, ('/auth/login/?next=/posts/1/edit/'))
         self.assertEqual(response.status_code, STATUS_FOUND)
 
     def test_urls_uses_correct_template(self):
@@ -85,4 +93,5 @@ class URLTests(TestCase):
         """Страница posts/<post_id>/edit/ не доступна
          авторизованному пользователю, но не автору поста"""
         response = self.authorized_client_1.get('/posts/1/edit/')
+        self.assertRedirects(response, '/posts/1/')
         self.assertEqual(response.status_code, STATUS_FOUND)

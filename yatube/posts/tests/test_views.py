@@ -2,6 +2,7 @@ from django import forms
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from ..forms import PostForm
 from ..models import Group, Post, User
 
 
@@ -14,6 +15,11 @@ class ViewsTests(TestCase):
             title='Тестовый заголовок',
             slug='test-slug',
             description='Тестовый текст',
+        )
+        cls.new_group = Group.objects.create(
+            title='Тестовый заголовок 1',
+            slug='test_slug_1',
+            description='Тестовый текст 1',
         )
         cls.post = Post.objects.create(
             author=cls.author,
@@ -60,6 +66,8 @@ class ViewsTests(TestCase):
             with self.subTest(value=value):
                 form_field = response.context.get('form').fields.get(value)
                 self.assertIsInstance(form_field, expected)
+        self.assertIsInstance(response.context.get('form'), PostForm)
+        self.assertTrue('is_edit' in response.context)
 
     def test_post_index_page_show_correct_context(self):
         """Проверяем Context страницы index"""
@@ -116,6 +124,7 @@ class ViewsTests(TestCase):
             with self.subTest(value=value):
                 form_field = response.context.get('form').fields.get(value)
                 self.assertIsInstance(form_field, expected)
+        self.assertIsInstance(response.context.get('form'), PostForm)
 
     def test_profile_page_list_is_1(self):
         """В шаблон profile передается верное количество постов"""
@@ -125,7 +134,7 @@ class ViewsTests(TestCase):
         object_all = response.context['page_obj']
         self.assertEqual(len(object_all), 1)
 
-    def test_post_new_create(self):
+    def test_post_new_create_appears_on_correct_pages(self):
         """При создании поста он должен появиться там,где следует"""
         exp_pages = [
             reverse('post:main'),
@@ -138,6 +147,14 @@ class ViewsTests(TestCase):
             with self.subTest(revers=revers):
                 response = self.authorized_client.get(revers)
                 self.assertIn(self.post, response.context['page_obj'])
+
+    def test_posts_not_contain_in_wrong_group(self):
+        """При создании поста он не появляется в другой группе"""
+        post = Post.objects.first()
+        response = self.authorized_client.get(
+            reverse('post:group', kwargs={'slug': self.new_group.slug})
+        )
+        self.assertNotIn(post, response.context['page_obj'].object_list)
 
 
 class PaginatorViewsTest(TestCase):
@@ -162,7 +179,6 @@ class PaginatorViewsTest(TestCase):
             for bulk in range(1, 14)
         ]
         cls.post = Post.objects.bulk_create(objs)
-        print(len(cls.post))
 
     def test_first_page_contains_ten_records(self):
         """Проверка: на первой странице должно быть 10 постов."""
